@@ -99,12 +99,20 @@ describe('Workyuk API end-to-end', () => {
     const comments = await clientA.get(`/api/projects/${projectId}/comments?subproject_id=${subprojectId}`).expect(200);
     expect(comments.body.data).toHaveLength(2);
     expect(comments.body.data[0].author.role).toBe('client');
-    await clientA.post(`/api/projects/${projectId}/attachments/link`).send({ title: 'Moodboard', url: 'https://example.com/moodboard', subprojectId }).expect(201);
-    const clientUpload = await clientA.post(`/api/projects/${projectId}/attachments/file`).attach('file', Buffer.from('feedback from client'), { filename: 'feedback.txt', contentType: 'text/plain' }).expect(201);
+    await clientA.post(`/api/projects/${projectId}/attachments/link`).send({ title: 'Moodboard klien', url: 'https://example.com/moodboard' }).expect(201);
+    const clientUpload = await clientA.post(`/api/projects/${projectId}/attachments/file`).field('subprojectId', String(subprojectId))
+      .attach('file', Buffer.from('feedback from client'), { filename: 'feedback.txt', contentType: 'text/plain' }).expect(201);
     await clientA.get(clientUpload.body.data.downloadUrl).expect(200);
+    await agency.post(`/api/projects/${projectId}/attachments/link`).send({ title: 'Referensi agency', url: 'https://example.com/agency-reference', subprojectId }).expect(201);
     const file = await agency.post(`/api/projects/${projectId}/attachments/file`).attach('file', Buffer.from('%PDF-1.4\nWorkyuk design'), { filename: 'arah.pdf', contentType: 'application/pdf' }).expect(201);
     attachmentId = file.body.data.id;
     await clientA.get(file.body.data.downloadUrl).expect(200);
+    const projectAttachments = await clientA.get(`/api/projects/${projectId}/attachments`).expect(200);
+    const deliverableAttachments = await clientA.get(`/api/projects/${projectId}/attachments?subproject_id=${subprojectId}`).expect(200);
+    expect(projectAttachments.body.data).toHaveLength(2);
+    expect(projectAttachments.body.data.every((item) => item.subprojectId === null)).toBe(true);
+    expect(deliverableAttachments.body.data).toHaveLength(2);
+    expect(deliverableAttachments.body.data.every((item) => item.subprojectId === subprojectId)).toBe(true);
     await clientA.post(`/api/projects/${projectId}/attachments/file`).attach('file', Buffer.from('MZ executable'), { filename: 'bad.exe', contentType: 'application/octet-stream' }).expect(415);
     await clientA.post(`/api/projects/${projectId}/attachments/file`).attach('file', Buffer.from('MZ executable'), { filename: 'spoof.pdf', contentType: 'application/pdf' }).expect(415);
     await clientA.post(`/api/projects/${projectId}/attachments/file`).attach('file', Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(1024 * 1024 + 2)]), { filename: 'large.pdf', contentType: 'application/pdf' }).expect(413);

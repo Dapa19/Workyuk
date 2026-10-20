@@ -330,7 +330,12 @@ export function createApp() {
     res.status(201).json({data:{id:row.id,projectId:row.project_id,subprojectId:row.subproject_id,body:row.body,createdAt:row.created_at,updatedAt:row.updated_at,author:actorName(row)}});
   }));
   api.get('/projects/:id/attachments', ...ready, asyncRoute(async(req,res)=>{
-    const project=await accessibleProject(toId(req),req.user);const rows=await all(`SELECT a.*,u.display_name,u.role FROM attachments a JOIN users u ON u.id=a.uploader_user_id WHERE a.project_id=? ORDER BY a.created_at DESC`,[project.id]);
+    const project=await accessibleProject(toId(req),req.user);
+    const subprojectId=req.query.subproject_id===undefined?null:Number(req.query.subproject_id);
+    if(subprojectId!==null){if(!Number.isInteger(subprojectId)||subprojectId<=0)throw bad(400,'INVALID_TARGET','Deliverable tidak valid.');await checkTarget(project.id,subprojectId);}
+    const rows=await all(`SELECT a.*,u.display_name,u.role FROM attachments a JOIN users u ON u.id=a.uploader_user_id
+      WHERE a.project_id=? AND ${subprojectId===null?'a.subproject_id IS NULL':'a.subproject_id=?'} ORDER BY a.created_at DESC`,
+    subprojectId===null?[project.id]:[project.id,subprojectId]);
     res.json({data:rows.map(attachmentView)});
   }));
   api.post('/projects/:id/attachments/link', ...ready, asyncRoute(async(req,res)=>{
